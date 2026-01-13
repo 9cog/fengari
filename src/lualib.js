@@ -58,5 +58,13 @@ const LUA_FENGARILIBNAME = "fengari";
 module.exports.LUA_FENGARILIBNAME = LUA_FENGARILIBNAME;
 module.exports.luaopen_fengari = require("./fengarilib.js").luaopen_fengari;
 
+const LUA_TENSORLIBNAME = "tensor";
+module.exports.LUA_TENSORLIBNAME = LUA_TENSORLIBNAME;
+module.exports.luaopen_tensor = require("./ltensorlib.js").luaopen_tensor;
+
+const LUA_TENSORLOGICLIBNAME = "tensorlogic";
+module.exports.LUA_TENSORLOGICLIBNAME = LUA_TENSORLOGICLIBNAME;
+module.exports.luaopen_tensorlogic = require("./ltensorlogiclib.js").luaopen_tensorlogic;
+
 const linit = require('./linit.js');
 module.exports.luaL_openlibs = linit.luaL_openlibs;
