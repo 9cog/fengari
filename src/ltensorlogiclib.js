@@ -153,9 +153,7 @@ const logic_and = function(L) {
     const t1 = gettensor(L, 1);
     const t2 = gettensor(L, 2);
     
-    if (!t1 || !t2) {
-        return lauxlib.luaL_error(L, to_luastring("expected tensors"));
-    }
+    if (!t1 || !t2) return 0;
     
     if (t1.shape.join(',') !== t2.shape.join(',')) {
         return lauxlib.luaL_error(L, to_luastring("tensors must have same shape"));
@@ -163,9 +161,8 @@ const logic_and = function(L) {
     
     const result = t1.clone();
     for (let i = 0; i < result.size; i++) {
-        // In continuous mode: multiplication approximates AND
-        // In boolean mode: min operation
-        result.data[i] = Math.min(t1.data[i] * t2.data[i], Math.min(t1.data[i], t2.data[i]));
+        // Use minimum as it works for both Boolean and continuous modes
+        result.data[i] = Math.min(t1.data[i], t2.data[i]);
     }
     
     const udata = lua.lua_newuserdata(L, 0);
@@ -177,14 +174,10 @@ const logic_and = function(L) {
 
 // Logical OR operation on predicates
 const logic_or = function(L) {
-    const ptr1 = lua.lua_touserdata(L, 1);
-    const ptr2 = lua.lua_touserdata(L, 2);
     const t1 = gettensor(L, 1);
     const t2 = gettensor(L, 2);
     
-    if (!t1 || !t2) {
-        return lauxlib.luaL_error(L, to_luastring("expected tensors"));
-    }
+    if (!t1 || !t2) return 0;
     
     if (t1.shape.join(',') !== t2.shape.join(',')) {
         return lauxlib.luaL_error(L, to_luastring("tensors must have same shape"));
@@ -192,10 +185,8 @@ const logic_or = function(L) {
     
     const result = t1.clone();
     for (let i = 0; i < result.size; i++) {
-        // In continuous mode: probabilistic sum
-        // In boolean mode: max operation
-        const probSum = t1.data[i] + t2.data[i] - t1.data[i] * t2.data[i];
-        result.data[i] = Math.max(probSum, Math.max(t1.data[i], t2.data[i]));
+        // Use maximum as it works for both Boolean and continuous modes
+        result.data[i] = Math.max(t1.data[i], t2.data[i]);
     }
     
     const udata = lua.lua_newuserdata(L, 0);
@@ -207,20 +198,16 @@ const logic_or = function(L) {
 
 // Logical NOT operation on predicates
 const logic_not = function(L) {
-    const udata = lua.lua_touserdata(L, 1);
-    const tensor = ptr.tensordata;
-    
-    if (!tensor) {
-        return lauxlib.luaL_error(L, to_luastring("expected tensor"));
-    }
+    const tensor = gettensor(L, 1);
+    if (!tensor) return 0;
     
     const result = tensor.clone();
     for (let i = 0; i < result.size; i++) {
         result.data[i] = 1 - result.data[i];
     }
     
-    const newptr = lua.lua_newuserdata(L, 0);
-    L.stack[newptr].tensordata = result;
+    const udata = lua.lua_newuserdata(L, 0);
+    udata.tensor = result;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
     return 1;
