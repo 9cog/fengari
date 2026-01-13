@@ -20,6 +20,25 @@ const ltensorlib = require('./ltensorlib.js');
 ** 3. Supporting both Boolean (exact) and continuous (probabilistic) modes
 */
 
+// Helper functions to get objects from userdata
+const gettensor = function(L, idx) {
+    const udata = lua.lua_touserdata(L, idx);
+    if (!udata || !udata.tensor) {
+        lauxlib.luaL_error(L, to_luastring("expected tensor"));
+        return null;
+    }
+    return udata.tensor;
+};
+
+const getkb = function(L, idx) {
+    const udata = lua.lua_touserdata(L, idx);
+    if (!udata || !udata.kb) {
+        lauxlib.luaL_error(L, to_luastring("expected knowledge base"));
+        return null;
+    }
+    return udata.kb;
+};
+
 // Knowledge base to store predicates
 class KnowledgeBase {
     constructor() {
@@ -47,28 +66,24 @@ class KnowledgeBase {
 // Create a new knowledge base
 const kb_new = function(L) {
     const kb = new KnowledgeBase();
-    const udata = lua.lua_newuserdatauv(L, 0, 0);
-    L.stack[ptr].kbdata = kb;
+    const udata = lua.lua_newuserdata(L, 0);
+    udata.kb = kb;
     lauxlib.luaL_setmetatable(L, to_luastring("knowledgebase"));
     return 1;
 };
 
 // Add predicate to knowledge base
 const kb_add_predicate = function(L) {
-    const udata = lapi.index2value(L, 1);
-    const kb = ptr.kbdata;
+
+    const kb = getkb(L, 1);
     
     if (!kb) {
         return lauxlib.luaL_error(L, to_luastring("expected knowledge base"));
     }
     
     const name = lauxlib.luaL_checkstring(L, 2);
-    const tensorUdata = lapi.index2value(L, 3);
-    const tensor = tensorPtr.tensordata;
     
-    if (!tensor) {
-        return lauxlib.luaL_error(L, to_luastring("expected tensor"));
-    }
+    const tensor = gettensor(L, 3);
     
     kb.addPredicate(to_jsstring(name), tensor);
     return 0;
@@ -76,8 +91,8 @@ const kb_add_predicate = function(L) {
 
 // Get predicate from knowledge base
 const kb_get_predicate = function(L) {
-    const udata = lapi.index2value(L, 1);
-    const kb = ptr.kbdata;
+    const udata = lua.lua_touserdata(L, 1);
+    const kb = getkb(L, 1);
     
     if (!kb) {
         return lauxlib.luaL_error(L, to_luastring("expected knowledge base"));
@@ -91,7 +106,7 @@ const kb_get_predicate = function(L) {
         return 1;
     }
     
-    const tensorUdata = lua.lua_newuserdatauv(L, 0, 0);
+    const tensorUdata = lua.lua_newuserdata(L, 0);
     tensorUdata.tensor = tensor;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
@@ -100,8 +115,8 @@ const kb_get_predicate = function(L) {
 
 // Set reasoning mode (boolean or continuous)
 const kb_set_mode = function(L) {
-    const udata = lapi.index2value(L, 1);
-    const kb = ptr.kbdata;
+    const udata = lua.lua_touserdata(L, 1);
+    const kb = getkb(L, 1);
     
     if (!kb) {
         return lauxlib.luaL_error(L, to_luastring("expected knowledge base"));
@@ -120,8 +135,8 @@ const kb_set_mode = function(L) {
 
 // Get reasoning mode
 const kb_get_mode = function(L) {
-    const udata = lapi.index2value(L, 1);
-    const kb = ptr.kbdata;
+    const udata = lua.lua_touserdata(L, 1);
+    const kb = getkb(L, 1);
     
     if (!kb) {
         return lauxlib.luaL_error(L, to_luastring("expected knowledge base"));
@@ -133,10 +148,10 @@ const kb_get_mode = function(L) {
 
 // Logical AND operation on predicates
 const logic_and = function(L) {
-    const ptr1 = lapi.index2value(L, 1);
-    const ptr2 = lapi.index2value(L, 2);
-    const t1 = ptr1.tensordata;
-    const t2 = ptr2.tensordata;
+    const ptr1 = lua.lua_touserdata(L, 1);
+    const ptr2 = lua.lua_touserdata(L, 2);
+    const t1 = gettensor(L, 1);
+    const t2 = gettensor(L, 2);
     
     if (!t1 || !t2) {
         return lauxlib.luaL_error(L, to_luastring("expected tensors"));
@@ -153,7 +168,7 @@ const logic_and = function(L) {
         result.data[i] = Math.min(t1.data[i] * t2.data[i], Math.min(t1.data[i], t2.data[i]));
     }
     
-    const udata = lua.lua_newuserdatauv(L, 0, 0);
+    const udata = lua.lua_newuserdata(L, 0);
     udata.tensor = result;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
@@ -162,10 +177,10 @@ const logic_and = function(L) {
 
 // Logical OR operation on predicates
 const logic_or = function(L) {
-    const ptr1 = lapi.index2value(L, 1);
-    const ptr2 = lapi.index2value(L, 2);
-    const t1 = ptr1.tensordata;
-    const t2 = ptr2.tensordata;
+    const ptr1 = lua.lua_touserdata(L, 1);
+    const ptr2 = lua.lua_touserdata(L, 2);
+    const t1 = gettensor(L, 1);
+    const t2 = gettensor(L, 2);
     
     if (!t1 || !t2) {
         return lauxlib.luaL_error(L, to_luastring("expected tensors"));
@@ -183,7 +198,7 @@ const logic_or = function(L) {
         result.data[i] = Math.max(probSum, Math.max(t1.data[i], t2.data[i]));
     }
     
-    const udata = lua.lua_newuserdatauv(L, 0, 0);
+    const udata = lua.lua_newuserdata(L, 0);
     udata.tensor = result;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
@@ -192,7 +207,7 @@ const logic_or = function(L) {
 
 // Logical NOT operation on predicates
 const logic_not = function(L) {
-    const udata = lapi.index2value(L, 1);
+    const udata = lua.lua_touserdata(L, 1);
     const tensor = ptr.tensordata;
     
     if (!tensor) {
@@ -204,7 +219,7 @@ const logic_not = function(L) {
         result.data[i] = 1 - result.data[i];
     }
     
-    const newptr = lua.lua_newuserdatauv(L, 0, 0);
+    const newptr = lua.lua_newuserdata(L, 0);
     L.stack[newptr].tensordata = result;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
@@ -215,10 +230,10 @@ const logic_not = function(L) {
 // Example: grandparent(X, Z) = parent(X, Y) ∧ parent(Y, Z)
 // This is represented as matrix multiplication in tensor space
 const logic_compose = function(L) {
-    const ptr1 = lapi.index2value(L, 1);
-    const ptr2 = lapi.index2value(L, 2);
-    const t1 = ptr1.tensordata;
-    const t2 = ptr2.tensordata;
+    const ptr1 = lua.lua_touserdata(L, 1);
+    const ptr2 = lua.lua_touserdata(L, 2);
+    const t1 = gettensor(L, 1);
+    const t2 = gettensor(L, 2);
     
     if (!t1 || !t2) {
         return lauxlib.luaL_error(L, to_luastring("expected tensors"));
@@ -247,7 +262,7 @@ const logic_compose = function(L) {
         }
     }
     
-    const udata = lua.lua_newuserdatauv(L, 0, 0);
+    const udata = lua.lua_newuserdata(L, 0);
     udata.tensor = result;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
@@ -256,7 +271,7 @@ const logic_compose = function(L) {
 
 // Query: apply a rule and return results above threshold
 const logic_query = function(L) {
-    const udata = lapi.index2value(L, 1);
+    const udata = lua.lua_touserdata(L, 1);
     const tensor = ptr.tensordata;
     
     if (!tensor) {
@@ -302,7 +317,7 @@ const logic_query = function(L) {
 
 // Inference: forward chaining using multiple rules
 const logic_infer = function(L) {
-    const kbPtr = lapi.index2value(L, 1);
+    const kbPtr = lua.lua_touserdata(L, 1);
     const kb = kbPtr.kbdata;
     
     if (!kb) {
@@ -364,7 +379,7 @@ const logic_relation = function(L) {
         lua.lua_pop(L, 1);
     }
     
-    const udata = lua.lua_newuserdatauv(L, 0, 0);
+    const udata = lua.lua_newuserdata(L, 0);
     udata.tensor = tensor;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
@@ -384,7 +399,7 @@ const logic_embed = function(L) {
         tensor.data[i] = (Math.random() - 0.5) * 2;
     }
     
-    const udata = lua.lua_newuserdatauv(L, 0, 0);
+    const udata = lua.lua_newuserdata(L, 0);
     udata.tensor = tensor;
     lauxlib.luaL_setmetatable(L, to_luastring("tensor"));
     
@@ -393,10 +408,10 @@ const logic_embed = function(L) {
 
 // Similarity computation in embedding space
 const logic_similarity = function(L) {
-    const ptr1 = lapi.index2value(L, 1);
-    const ptr2 = lapi.index2value(L, 2);
-    const t1 = ptr1.tensordata;
-    const t2 = ptr2.tensordata;
+    const ptr1 = lua.lua_touserdata(L, 1);
+    const ptr2 = lua.lua_touserdata(L, 2);
+    const t1 = gettensor(L, 1);
+    const t2 = gettensor(L, 2);
     
     if (!t1 || !t2) {
         return lauxlib.luaL_error(L, to_luastring("expected tensors"));
