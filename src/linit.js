@@ -42,3 +42,9 @@ if (typeof process !== "undefined")
 /* Extension: fengari library */
 const { luaopen_fengari } = require('./fengarilib.js');
 loadedlibs[lualib.LUA_FENGARILIBNAME] = luaopen_fengari;
+
+/* Extension: tensor and tensor logic libraries */
+const { luaopen_tensor } = require('./ltensorlib.js');
+const { luaopen_tensorlogic } = require('./ltensorlogiclib.js');
+loadedlibs[lualib.LUA_TENSORLIBNAME] = luaopen_tensor;
+loadedlibs[lualib.LUA_TENSORLOGICLIBNAME] = luaopen_tensorlogic;
